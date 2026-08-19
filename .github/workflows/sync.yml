@@ -75,4 +75,4 @@ jobs:
           echo "✅ PR closed in SOURCE repo!"
       
       - name: Log success
-        run: echo "✅ Sync complete! DEV → PROD"
+        run: echo "✅ Sync complete! DEV → PROD, both PRs closed!"

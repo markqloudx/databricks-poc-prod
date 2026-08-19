@@ -12,9 +12,8 @@ on:
         required: true
         default: 'main'
       pr_number:
-        description: 'PR number to close after merge'
-        required: false
-        default: ''
+        description: 'PR number to merge and close'
+        required: true
 
 permissions:
   contents: write
@@ -36,24 +35,49 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
+      # ============================================================
+      # STEP 1: Merge PR in Source Repo (DEV)
+      # ============================================================
+      
+      - name: Merge PR in SOURCE repo (DEV)
+        run: |
+          echo "🔀 Merging PR #${{ github.event.inputs.pr_number }} in SOURCE repo"
+          
+          # Merge the PR using GitHub API
+          MERGE_URL="https://api.github.com/repos/${{ github.event.inputs.source_repo }}/pulls/${{ github.event.inputs.pr_number }}/merge"
+          curl -X PUT \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            $MERGE_URL \
+            -d '{"commit_title":"Merge PR #${{ github.event.inputs.pr_number }}","merge_method":"merge"}'
+          
+          echo "✅ PR merged in SOURCE repo!"
+      
+      # ============================================================
+      # STEP 2: Sync Source → Target
+      # ============================================================
+      
       - name: Add source repo (DEV) as remote
         run: |
           git remote add source https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
           git fetch source ${{ github.event.inputs.branch }}
       
-      - name: Merge DEV into PROD
+      - name: Merge source into target
         run: |
           git checkout ${{ github.event.inputs.branch }}
           echo "🔄 Merging from source to target..."
           git merge source/${{ github.event.inputs.branch }} --allow-unrelated-histories -m "Sync from ${{ github.event.inputs.source_repo }}"
       
-      - name: Push merged code to PROD
+      - name: Push merged code to target
         run: |
           git push origin ${{ github.event.inputs.branch }}
           echo "✅ Successfully synced to target!"
       
+      # ============================================================
+      # STEP 3: Close PR in TARGET repo (PROD)
+      # ============================================================
+      
       - name: Close PR in TARGET repo (PROD)
-        if: github.event.inputs.pr_number != ''
         run: |
           echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in TARGET repo"
           curl -X PATCH \
@@ -63,8 +87,11 @@ jobs:
             -d '{"state":"closed"}'
           echo "✅ PR closed in TARGET repo!"
       
+      # ============================================================
+      # STEP 4: Close PR in SOURCE repo (DEV) - Already merged
+      # ============================================================
+      
       - name: Close PR in SOURCE repo (DEV)
-        if: github.event.inputs.pr_number != ''
         run: |
           echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in SOURCE repo"
           curl -X PATCH \
@@ -75,4 +102,10 @@ jobs:
           echo "✅ PR closed in SOURCE repo!"
       
       - name: Log success
-        run: echo "✅ Sync complete! DEV → PROD, both PRs closed!"
+        run: |
+          echo "============================================"
+          echo "✅ SYNC COMPLETE!"
+          echo "   1. PR merged in SOURCE repo"
+          echo "   2. Code synced to TARGET repo"
+          echo "   3. PR closed in BOTH repos"
+          echo "============================================"

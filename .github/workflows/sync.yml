@@ -52,16 +52,27 @@ jobs:
           git push origin ${{ github.event.inputs.branch }}
           echo "✅ Successfully synced to target!"
       
-      - name: Close PR in PROD (if PR number provided)
+      - name: Close PR in TARGET repo (PROD)
         if: github.event.inputs.pr_number != ''
         run: |
-          echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in target repo"
+          echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in TARGET repo"
           curl -X PATCH \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.inputs.pr_number }} \
             -d '{"state":"closed"}'
-          echo "✅ PR closed successfully!"
+          echo "✅ PR closed in TARGET repo!"
+      
+      - name: Close PR in SOURCE repo (DEV)
+        if: github.event.inputs.pr_number != ''
+        run: |
+          echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in SOURCE repo"
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.event.inputs.source_repo }}/pulls/${{ github.event.inputs.pr_number }} \
+            -d '{"state":"closed"}'
+          echo "✅ PR closed in SOURCE repo!"
       
       - name: Log success
         run: echo "✅ Sync complete! DEV → PROD"

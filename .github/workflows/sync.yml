@@ -12,6 +12,11 @@ on:
         required: true
         default: 'main'
 
+# ⚡ ADD THIS - Give the workflow write permissions
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -20,7 +25,7 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN }}  # ← Use your token
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       
       - name: Configure git
@@ -30,7 +35,7 @@ jobs:
       
       - name: Add source repo as remote
         run: |
-          git remote add source https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
+          git remote add source https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
           git fetch source ${{ github.event.inputs.branch }}
       
       - name: Merge source into target

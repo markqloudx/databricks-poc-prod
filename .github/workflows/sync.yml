@@ -1,0 +1,46 @@
+name: Sync Source to Target
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: 'Source repository (username/repo)'
+        required: true
+        default: 'markqloudx/databricks-poc-dev'
+      branch:
+        description: 'Branch to sync'
+        required: true
+        default: 'main'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Add source repo as remote
+        run: |
+          git remote add source https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
+          git fetch source ${{ github.event.inputs.branch }}
+      
+      - name: Merge source into target
+        run: |
+          git checkout ${{ github.event.inputs.branch }}
+          git merge source/${{ github.event.inputs.branch }} --allow-unrelated-histories -m "Sync from source repo"
+      
+      - name: Push to target
+        run: |
+          git push origin ${{ github.event.inputs.branch }}
+      
+      - name: Log success
+        run: echo "✅ Successfully synced from source to target!"

@@ -1,0 +1,32 @@
+name: Sync Source to Target
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Add source repo as remote
+        run: |
+          git remote add source https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch source main
+      
+      - name: Merge source into target
+        run: |
+          git checkout main
+          git merge source/main --allow-unrelated-histories -m "Sync from source repo"
+      
+      - name: Push to target
+        run: |
+          git push origin main
+      
+      - name: Log success
+        run: echo "✅ Successfully synced from source to target!"

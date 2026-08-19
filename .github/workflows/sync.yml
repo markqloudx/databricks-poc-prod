@@ -11,8 +11,11 @@ on:
         description: 'Branch to sync'
         required: true
         default: 'main'
+      pr_number:
+        description: 'PR number to close after merge'
+        required: false
+        default: ''
 
-# ⚡ ADD THIS - Give the workflow write permissions
 permissions:
   contents: write
   pull-requests: write
@@ -22,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout target repo
+      - name: Checkout target repo (PROD)
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -33,19 +36,32 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      - name: Add source repo as remote
+      - name: Add source repo (DEV) as remote
         run: |
           git remote add source https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
           git fetch source ${{ github.event.inputs.branch }}
       
-      - name: Merge source into target
+      - name: Merge DEV into PROD
         run: |
           git checkout ${{ github.event.inputs.branch }}
-          git merge source/${{ github.event.inputs.branch }} --allow-unrelated-histories -m "Sync from source repo"
+          echo "🔄 Merging from source to target..."
+          git merge source/${{ github.event.inputs.branch }} --allow-unrelated-histories -m "Sync from ${{ github.event.inputs.source_repo }}"
       
-      - name: Push to target
+      - name: Push merged code to PROD
         run: |
           git push origin ${{ github.event.inputs.branch }}
+          echo "✅ Successfully synced to target!"
+      
+      - name: Close PR in PROD (if PR number provided)
+        if: github.event.inputs.pr_number != ''
+        run: |
+          echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in target repo"
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.inputs.pr_number }} \
+            -d '{"state":"closed"}'
+          echo "✅ PR closed successfully!"
       
       - name: Log success
-        run: echo "✅ Successfully synced from source to target!"
+        run: echo "✅ Sync complete! DEV → PROD"

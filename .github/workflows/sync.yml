@@ -27,18 +27,22 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN }}  # ← Using PAT
+          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
       
+      # ✅ FIXED: Correct git config commands
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
-          git config.user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      # STEP 1: Merge PR in SOURCE repo
+      # ============================================================
+      # STEP 1: Merge PR in SOURCE repo (DEV)
+      # ============================================================
+      
       - name: Merge PR in SOURCE repo
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # ← Using PAT
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           echo "🔀 Merging PR #${{ github.event.inputs.pr_number }} in ${{ github.event.inputs.source_repo }}"
           gh pr merge ${{ github.event.inputs.pr_number }} \
@@ -47,7 +51,10 @@ jobs:
             --delete-branch || echo "⚠️ Merge failed"
           echo "✅ PR merge attempted in SOURCE repo!"
       
+      # ============================================================
       # STEP 2: Sync Source → Target
+      # ============================================================
+      
       - name: Add source repo as remote
         run: |
           git remote add source https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.event.inputs.source_repo }}.git
@@ -64,27 +71,36 @@ jobs:
           git push origin ${{ github.event.inputs.branch }} || echo "⚠️ Push failed"
           echo "✅ Sync attempted to target!"
       
-      # STEP 3: Close PR in TARGET repo
+      # ============================================================
+      # STEP 3: Close PR in TARGET repo (PROD)
+      # ============================================================
+      
       - name: Close PR in TARGET repo
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # ← Using PAT
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in TARGET repo"
           gh pr close ${{ github.event.inputs.pr_number }} \
             --repo ${{ github.repository }} || echo "⚠️ Could not close PR"
           echo "✅ PR close attempted in TARGET repo!"
       
-      # STEP 4: Close PR in SOURCE repo
+      # ============================================================
+      # STEP 4: Close PR in SOURCE repo (DEV)
+      # ============================================================
+      
       - name: Close PR in SOURCE repo
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # ← Using PAT
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           echo "🔒 Closing PR #${{ github.event.inputs.pr_number }} in SOURCE repo"
           gh pr close ${{ github.event.inputs.pr_number }} \
             --repo ${{ github.event.inputs.source_repo }} || echo "⚠️ Could not close PR"
           echo "✅ PR close attempted in SOURCE repo!"
       
+      # ============================================================
       # STEP 5: Log success
+      # ============================================================
+      
       - name: Log success
         run: |
           echo "============================================"
@@ -93,3 +109,12 @@ jobs:
           echo "   2. Code sync attempted to TARGET repo"
           echo "   3. PR close attempted in BOTH repos"
           echo "============================================"
+      
+      - name: Show final status
+        run: |
+          echo "📊 Final PR Status:"
+          echo "SOURCE:"
+          gh pr view ${{ github.event.inputs.pr_number }} --repo ${{ github.event.inputs.source_repo }} --json state,merged 2>/dev/null || echo "PR not found"
+          echo ""
+          echo "TARGET:"
+          gh pr view ${{ github.event.inputs.pr_number }} --repo ${{ github.repository }} --json state,merged 2>/dev/null || echo "PR not found"
